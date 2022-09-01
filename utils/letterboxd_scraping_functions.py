@@ -11,7 +11,7 @@ import logging
 from utils.generic_scraping_functions import get_all_soup_objects, parse_urls
 from utils.time_utils import time_it
 from utils.logging_utils import Logger
-from utils.generic_scraping_functions import ParallelTechnique
+from utils.generic_scraping_functions import ParsingTechnique, ParallelTechnique
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
@@ -23,9 +23,9 @@ def get_url_for_each_page(playlist_url: str, number_of_pages: int) -> list[str]:
 
 
 @time_it
-def parse_playlist_pages_as_html(pages_urls: list[str], asynchronous: str) -> list[str]:
-    """Asynchronously parses all pages in a playlist"""
-    return parse_urls(urls=pages_urls, asynchronous=asynchronous)
+def parse_playlist_pages_as_html(pages_urls: list[str], technique: ParsingTechnique) -> list[str]:
+    """Parses all pages in a playlist either synchronously or asynchronously"""
+    return parse_urls(urls=pages_urls, technique=technique)
 
 
 @time_it
@@ -84,11 +84,11 @@ def scrape_ids_ratings_and_urls(pages_soups: list[bs4.BeautifulSoup], playlist_t
 def parse_film_urls_as_html(current_df: pd.DataFrame or None,
                             new_records: list[str] or None,
                             film_urls: list[str],
-                            asynchronous: str) -> list[str]:
+                            technique: ParsingTechnique) -> list[str]:
     if current_df is not None and new_records:
-        return parse_urls(urls=new_records, asynchronous=asynchronous)
+        return parse_urls(urls=new_records, technique=technique)
     elif current_df is None:
-        return parse_urls(urls=film_urls, asynchronous=asynchronous)
+        return parse_urls(urls=film_urls, technique=technique)
 
 
 @time_it

@@ -44,10 +44,15 @@ def parse_urls_synchronously(urls: list[str]) -> list[str]:
     return [requests.get(url).content for url in urls]
 
 
-def parse_urls(urls: list[str], asynchronous: str) -> list[str]:
-    if asynchronous == "true":
+class ParsingTechnique(Enum):
+    SYNCHRONOUS = "synchronous"
+    ASYNCHRONOUS = "asynchronous"
+
+
+def parse_urls(urls: list[str], technique: ParsingTechnique) -> list[str]:
+    if technique == ParsingTechnique.ASYNCHRONOUS:
         return run_event_loop(urls=urls)
-    else:
+    elif technique == ParsingTechnique.SYNCHRONOUS:
         return parse_urls_synchronously(urls=urls)
 
 

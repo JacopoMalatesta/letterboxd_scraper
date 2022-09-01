@@ -4,7 +4,6 @@
 # 4. AWS Lambda
 # 7. Add docstrings + type declarations
 # 8. Unit testing
-# 9. Push to git
 
 import sys
 import logging
@@ -18,8 +17,8 @@ from utils.s3_utils import get_s3_key, read_current_df_from_s3, write_final_df_t
 from utils.data_wrangling_utils import get_new_records, create_final_dataframe
 from utils.logging_utils import Logger
 from utils.time_utils import time_it
-from utils.generic_scraping_functions import ParallelTechnique
-from utils.argparse_utils import format_how_argument
+from utils.generic_scraping_functions import ParallelTechnique, ParsingTechnique
+from utils.argparse_utils import format_parsing_argument, format_soupification_argument
 
 sys.setrecursionlimit(100000)
 
@@ -28,7 +27,7 @@ info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
 @time_it
 def main(url: str,
-         asynchronous: str,
+         parsing_technique: ParsingTechnique,
          parallel_technique: ParallelTechnique,
          over_write: str = "false"):
 
@@ -41,7 +40,7 @@ def main(url: str,
 
         pages_urls = get_url_for_each_page(playlist_url=metadata["url"], number_of_pages=metadata["number_of_pages"])
 
-        html_pages, runtime = parse_playlist_pages_as_html(pages_urls=pages_urls, asynchronous=asynchronous)
+        html_pages, runtime = parse_playlist_pages_as_html(pages_urls=pages_urls, technique=parsing_technique)
         info_log.info(f"Finished asynchronously parsing playlist pages as HTML code in {runtime}")
 
         pages_soups, runtime = get_soup_objects_from_playlist_pages(html_pages=html_pages,
@@ -65,7 +64,7 @@ def main(url: str,
         html_pages, runtime = parse_film_urls_as_html(current_df=current_df,
                                                       new_records=new_records,
                                                       film_urls=ids_ratings_urls["urls"],
-                                                      asynchronous=asynchronous)
+                                                      technique=parsing_technique)
         info_log.info(f"Finished asynchronously parsing film pages as HTML code in {runtime}")
 
         film_soups, runtime = get_soup_objects_from_film_pages(current_df=current_df,
@@ -91,16 +90,18 @@ def main(url: str,
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--url",
-                    help="Playlist URL to scrape",
+                    help="URL of the playlist to scrape",
                     type=str)
-parser.add_argument("--asynchronous",
-                    help="If true the URLs are parsed asynchronously",
+parser.add_argument("--parsing",
+                    help="Allows user to decide whether to parse the URLs synchronously or asynchronously",
                     type=str,
-                    default="true")
-parser.add_argument("--how",
-                    help="Allows user to choose between multithreading and multiprocessing",
+                    default="asynchronous",
+                    choices=("synchronous", "asynchronous"))
+parser.add_argument("--soupification",
+                    help="Allows user to decide how to turn HTML pages into BeautifulSoup objects",
                     type=str,
-                    default="multiprocessing")
+                    default="synchronous",
+                    choices=("multiprocessing", "multithreading", "synchronous"))
 parser.add_argument("--overwrite",
                     help="If True it scrapes the entire playlist and overwrites the existing csv file in S3",
                     type=str,
@@ -110,16 +111,16 @@ args = parser.parse_args()
 
 playlist_url = args.url
 
-asynchronous = args.asynchronous
+parsing = format_parsing_argument(args.parsing)
 
-how = format_how_argument(how=args.how)
+soupification = format_soupification_argument(args.soupification)
 
 overwrite = args.overwrite
 
 
 if __name__ == "__main__":
     test, total_execution_time = main(url=playlist_url,
-                                      asynchronous=asynchronous,
-                                      parallel_technique=how,
+                                      parsing_technique=parsing,
+                                      parallel_technique=soupification,
                                       over_write=overwrite)
-    info_log.info(f"Overall runtime {how.value.upper()}: {total_execution_time}")
+    info_log.info(f"Overall runtime {soupification.value.upper()}: {total_execution_time}")
