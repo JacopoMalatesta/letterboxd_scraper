@@ -1,7 +1,8 @@
 # IMPROVEMENTS/NICE TO HAVE
-# 2. Solve encoding issue
-# 3. Amazon Athena and connect to Tableau
-# 4. AWS Lambda
+# 1. Proper boolean value for --overwrite
+# 4. Solve encoding issue
+# 5. Amazon Athena and connect to Tableau
+# 6. AWS Lambda
 # 7. Add docstrings + type declarations
 # 8. Unit testing
 
@@ -41,11 +42,12 @@ def main(url: str,
         pages_urls = get_url_for_each_page(playlist_url=metadata["url"], number_of_pages=metadata["number_of_pages"])
 
         html_pages, runtime = parse_playlist_pages_as_html(pages_urls=pages_urls, technique=parsing_technique)
-        info_log.info(f"Finished asynchronously parsing playlist pages as HTML code in {runtime}")
+        info_log.info(f"Finished {parsing_technique.value}ly parsing playlist pages as HTML code in {runtime}")
 
         pages_soups, runtime = get_soup_objects_from_playlist_pages(html_pages=html_pages,
                                                                     technique=parallel_technique)
-        info_log.info(f"Finished getting BeautifulSoup objects out of playlist pages with in {runtime}")
+        info_log.info(f"Finished getting BeautifulSoup objects out of playlist pages ({parallel_technique.value}) "
+                      f"in {runtime}")
 
         ids_ratings_urls, runtime = scrape_ids_ratings_and_urls(pages_soups=pages_soups, playlist_type=metadata["type"])
         info_log.info(f"Finished scraping film IDs, ratings and URLs from playlist pages in {runtime}")
@@ -65,13 +67,14 @@ def main(url: str,
                                                       new_records=new_records,
                                                       film_urls=ids_ratings_urls["urls"],
                                                       technique=parsing_technique)
-        info_log.info(f"Finished asynchronously parsing film pages as HTML code in {runtime}")
+        info_log.info(f"Finished {parsing_technique.value}ly parsing film pages as HTML code in {runtime}")
 
         film_soups, runtime = get_soup_objects_from_film_pages(current_df=current_df,
                                                                new_records=new_records,
                                                                html_pages=html_pages,
                                                                technique=parallel_technique)
-        info_log.info(f"Finished getting BeautifulSoup objects from HTML pages with in {runtime}")
+        info_log.info(f"Finished getting BeautifulSoup objects from HTML pages ({parallel_technique.value}) "
+                      f"in {runtime}")
 
         more_film_data, runtime = scrape_remaining_film_data(current_df=current_df,
                                                              new_records=new_records,
@@ -89,20 +92,23 @@ def main(url: str,
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--url",
+parser.add_argument("url",
                     help="URL of the playlist to scrape",
                     type=str)
-parser.add_argument("--parsing",
+parser.add_argument("-p",
+                    "--parsing",
                     help="Allows user to decide whether to parse the URLs synchronously or asynchronously",
                     type=str,
                     default="asynchronous",
                     choices=("synchronous", "asynchronous"))
-parser.add_argument("--soupification",
+parser.add_argument("-s",
+                    "--soupification",
                     help="Allows user to decide how to turn HTML pages into BeautifulSoup objects",
                     type=str,
                     default="synchronous",
                     choices=("multiprocessing", "multithreading", "synchronous"))
-parser.add_argument("--overwrite",
+parser.add_argument("-o",
+                    "--overwrite",
                     help="If True it scrapes the entire playlist and overwrites the existing csv file in S3",
                     type=str,
                     default="false")
@@ -123,4 +129,4 @@ if __name__ == "__main__":
                                       parsing_technique=parsing,
                                       parallel_technique=soupification,
                                       over_write=overwrite)
-    info_log.info(f"Overall runtime {soupification.value.upper()}: {total_execution_time}")
+    info_log.info(f"Total runtime: {total_execution_time}")
