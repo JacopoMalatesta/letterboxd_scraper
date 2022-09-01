@@ -1,5 +1,4 @@
 # IMPROVEMENTS/NICE TO HAVE
-# 1. Proper boolean value for --overwrite
 # 4. Solve encoding issue
 # 5. Amazon Athena and connect to Tableau
 # 6. AWS Lambda
@@ -9,6 +8,7 @@
 import sys
 import logging
 import argparse
+from distutils.util import strtobool
 from utils.config import config_dict
 from utils.playlist_metadata import Playlist
 from utils.letterboxd_scraping_functions import get_url_for_each_page, parse_playlist_pages_as_html, \
@@ -30,7 +30,7 @@ info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 def main(url: str,
          parsing_technique: ParsingTechnique,
          parallel_technique: ParallelTechnique,
-         over_write: str = "false"):
+         over_write: bool):
 
     if __name__ == '__main__':
 
@@ -57,7 +57,7 @@ def main(url: str,
         current_df, runtime = read_current_df_from_s3(configs=config_dict, key=df_key)
         info_log.info(f"Finished reading the current dataframe from S3 (if any) in {runtime}")
 
-        current_df = None if over_write == "true" else current_df
+        current_df = None if over_write else current_df
 
         new_records = get_new_records(current_df=current_df,
                                       film_ids=ids_ratings_urls["ids"],
@@ -110,8 +110,8 @@ parser.add_argument("-s",
 parser.add_argument("-o",
                     "--overwrite",
                     help="If True it scrapes the entire playlist and overwrites the existing csv file in S3",
-                    type=str,
-                    default="false")
+                    type=lambda x: bool(strtobool(x)),
+                    default=False)
 
 args = parser.parse_args()
 
