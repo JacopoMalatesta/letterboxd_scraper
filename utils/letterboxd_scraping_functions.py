@@ -8,12 +8,25 @@ from dataclasses import dataclass
 import numpy as np
 import json
 import logging
-from utils.generic_scraping_functions import get_all_soup_objects, parse_urls
+from utils.generic_scraping_functions import get_soup_object, get_all_soup_objects, parse_urls
 from utils.time_utils import time_it
 from utils.logging_utils import Logger
 from utils.generic_scraping_functions import ParsingTechnique, ParallelTechnique
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
+
+
+def get_number_of_pages(url: str) -> int:
+    """Returns the total number of pages in a playlist by scraping it from the first page.
+    Later, we're going to loop over all pages in the playlist. To do so we need to create a URL for
+    each page in the playlist"""
+
+    soup = get_soup_object(page=url, is_parsed_html=False)
+    try:
+        last_li = soup.find_all("li", class_="paginate-page")[-1]
+        return int(last_li.text)
+    except IndexError:
+        return 1
 
 
 def get_url_for_each_page(playlist_url: str, number_of_pages: int) -> list[str]:

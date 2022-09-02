@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from collections import defaultdict
-from utils.string_utils import get_capturing_groups, get_username, get_playlist_type, get_playlist_title, \
-    get_number_of_pages
+from utils.string_utils import get_capturing_groups, get_username, get_playlist_type, get_playlist_title
+from utils.letterboxd_scraping_functions import get_number_of_pages
 
 
 @dataclass

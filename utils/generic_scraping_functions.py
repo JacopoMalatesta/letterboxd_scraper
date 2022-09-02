@@ -3,7 +3,7 @@ import requests
 import aiohttp
 import asyncio
 import concurrent.futures
-from enum import Enum
+from utils.enums_classes import ParsingTechnique, ParallelTechnique
 
 
 def get_soup_object(page: str, is_parsed_html: bool = True) -> bs4.BeautifulSoup:
@@ -44,11 +44,6 @@ def parse_urls_synchronously(urls: list[str]) -> list[str]:
     return [requests.get(url).content for url in urls]
 
 
-class ParsingTechnique(Enum):
-    SYNCHRONOUS = "synchronous"
-    ASYNCHRONOUS = "asynchronous"
-
-
 def parse_urls(urls: list[str], technique: ParsingTechnique) -> list[str]:
     if technique == ParsingTechnique.ASYNCHRONOUS:
         return run_event_loop(urls=urls)
@@ -56,25 +51,31 @@ def parse_urls(urls: list[str], technique: ParsingTechnique) -> list[str]:
         return parse_urls_synchronously(urls=urls)
 
 
-class ParallelTechnique(Enum):
-    MULTIPROCESSING = "multiprocessing"
-    MULTITHREADING = "multithreading"
-    SYNCHRONOUS = "synchronous"
+def get_soup_objects_multiprocessing(html_pages: list[str]) -> list[bs4.BeautifulSoup]:
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        soups = executor.map(get_soup_object, html_pages)
+
+    return list(soups)
+
+
+def get_soup_objects_multithreading(html_pages: list[str]) -> list[bs4.BeautifulSoup]:
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        soups = executor.map(get_soup_object, html_pages)
+
+    return list(soups)
+
+
+def get_soup_objects_synchronously(html_pages: list[str]) -> list[bs4.BeautifulSoup]:
+    return [get_soup_object(page=html_page) for html_page in html_pages]
 
 
 def get_all_soup_objects(html_pages: list[str], technique: ParallelTechnique) -> list[bs4.BeautifulSoup]:
     """Turns HTML pages into BeautifulSoup objects with either multiprocessing or multithreading"""
     if technique == ParallelTechnique.MULTIPROCESSING:
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            soups = executor.map(get_soup_object, html_pages)
-
-        return list(soups)
+        return get_soup_objects_multiprocessing(html_pages=html_pages)
 
     elif technique == ParallelTechnique.MULTITHREADING:
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            soups = executor.map(get_soup_object, html_pages)
-
-        return list(soups)
+        return get_soup_objects_multithreading(html_pages=html_pages)
 
     elif technique == ParallelTechnique.SYNCHRONOUS:
-        return [get_soup_object(page=html_page) for html_page in html_pages]
+        return get_soup_objects_synchronously(html_pages=html_pages)

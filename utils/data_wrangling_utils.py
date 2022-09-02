@@ -1,6 +1,7 @@
 import pandas as pd
 import logging
 from utils.logging_utils import Logger
+from utils.time_utils import time_it
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
@@ -22,6 +23,7 @@ def get_new_records(current_df: pd.DataFrame,
         return None
 
 
+@time_it
 def create_final_dataframe(current_df: pd.DataFrame,
                            new_records: list[str],
                            ids_ratings_urls: dict,

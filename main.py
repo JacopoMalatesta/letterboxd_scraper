@@ -1,9 +1,9 @@
 # IMPROVEMENTS/NICE TO HAVE
-# 4. Solve encoding issue
-# 5. Amazon Athena and connect to Tableau
-# 6. AWS Lambda
-# 7. Add docstrings + type declarations
-# 8. Unit testing
+# 1. Solve encoding issue
+# 2. Amazon Athena and connect to Tableau
+# 3. AWS Lambda
+# 4. Add docstrings + type declarations
+# 5. Unit testing
 
 import sys
 import logging
@@ -18,7 +18,7 @@ from utils.s3_utils import get_s3_key, read_current_df_from_s3, write_final_df_t
 from utils.data_wrangling_utils import get_new_records, create_final_dataframe
 from utils.logging_utils import Logger
 from utils.time_utils import time_it
-from utils.generic_scraping_functions import ParallelTechnique, ParsingTechnique
+from utils.enums_classes import ParallelTechnique, ParsingTechnique
 from utils.argparse_utils import format_parsing_argument, format_soupification_argument
 
 sys.setrecursionlimit(100000)
@@ -81,10 +81,11 @@ def main(url: str,
                                                              film_soups=film_soups)
         info_log.info(f"Finished scraping all other film data in {runtime}")
 
-        final_df = create_final_dataframe(current_df=current_df,
-                                          new_records=new_records,
-                                          ids_ratings_urls=ids_ratings_urls,
-                                          additional_film_data=more_film_data)
+        final_df, runtime = create_final_dataframe(current_df=current_df,
+                                                   new_records=new_records,
+                                                   ids_ratings_urls=ids_ratings_urls,
+                                                   additional_film_data=more_film_data)
+        info_log.info(f"Finished creating the final dataframe in {runtime}")
 
         _none, runtime = write_final_df_to_s3(configs=config_dict, df=final_df, key=df_key)
         info_log.info(f"Finished writing final dataframe in S3 bucket in {runtime}")
