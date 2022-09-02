@@ -6,7 +6,3 @@ class ParallelTechnique(Enum):
     MULTITHREADING = "multithreading"
     SYNCHRONOUS = "synchronous"
 
-
-class ParsingTechnique(Enum):
-    SYNCHRONOUS = "synchronous"
-    ASYNCHRONOUS = "asynchronous"

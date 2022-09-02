@@ -3,15 +3,13 @@ import bs4
 import itertools
 from collections import defaultdict
 from typing import Any
-import pandas as pd
 from dataclasses import dataclass
 import numpy as np
 import json
 import logging
-from utils.generic_scraping_functions import get_soup_object, get_all_soup_objects, parse_urls
+from utils.generic_scraping_functions import parse_url_synchronously, get_soup_object_out_of_parsed_html
 from utils.time_utils import time_it
 from utils.logging_utils import Logger
-from utils.generic_scraping_functions import ParsingTechnique, ParallelTechnique
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
@@ -21,7 +19,8 @@ def get_number_of_pages(url: str) -> int:
     Later, we're going to loop over all pages in the playlist. To do so we need to create a URL for
     each page in the playlist"""
 
-    soup = get_soup_object(page=url, is_parsed_html=False)
+    html = parse_url_synchronously(url=url)
+    soup = get_soup_object_out_of_parsed_html(html_page=html)
     try:
         last_li = soup.find_all("li", class_="paginate-page")[-1]
         return int(last_li.text)
@@ -29,23 +28,10 @@ def get_number_of_pages(url: str) -> int:
         return 1
 
 
-def get_url_for_each_page(playlist_url: str, number_of_pages: int) -> list[str]:
+def get_url_for_each_page(metadata: dict) -> list[str]:
     """Returns the URL for all pages in the playlist"""
-    url_with_page_number = playlist_url + "/page/{}/"
-    return [url_with_page_number.format(i) for i in range(1, number_of_pages + 1)]
-
-
-@time_it
-def parse_playlist_pages_as_html(pages_urls: list[str], technique: ParsingTechnique) -> list[str]:
-    """Parses all pages in a playlist either synchronously or asynchronously"""
-    return parse_urls(urls=pages_urls, technique=technique)
-
-
-@time_it
-def get_soup_objects_from_playlist_pages(html_pages: list[str],
-                                         technique: ParallelTechnique) -> list[bs4.BeautifulSoup]:
-    """Get BeautifulSoup objects out of the HTML pages"""
-    return get_all_soup_objects(html_pages=html_pages, technique=technique)
+    url_with_page_number = metadata["url"] + "/page/{}/"
+    return [url_with_page_number.format(i) for i in range(1, metadata["number_of_pages"] + 1)]
 
 
 def unnest_list(lst: list[list[Any]]) -> list[Any]:
@@ -59,12 +45,12 @@ def get_ids(soup: bs4.BeautifulSoup) -> list[int]:
     return [int(film.get("data-film-id")) for film in films]
 
 
-def get_ratings(soup: bs4.BeautifulSoup, playlist_type: str) -> list[int]:
+def get_ratings(soup: bs4.BeautifulSoup) -> list[int]:
     """Scrapes all ratings from a playlist page"""
-    if playlist_type == "list":
+    try:
         films = soup.find_all("li", class_="poster-container")
         return [int(film.get("data-owner-rating")) for film in films]
-    elif playlist_type == "films":
+    except TypeError:
         rated = [span.get("class")[1] for span in soup.find_all("span", class_="rating")]
         return [int(re.findall(r'\d+', r)[0]) for r in rated]
 
@@ -76,41 +62,21 @@ def get_film_urls(soup: bs4.BeautifulSoup) -> list[str]:
 
 
 @time_it
-def scrape_ids_ratings_and_urls(pages_soups: list[bs4.BeautifulSoup], playlist_type: str) -> dict:
+def scrape_ids_ratings_and_urls(pages_soups: list[bs4.BeautifulSoup]) -> dict:
     """Scrapes all film IDs, ratings and urls from a playlist and stores them in a dictionary"""
     ids, ratings, film_urls = [], [], []
 
     for soup in pages_soups:
-        id_list, rating_list, url_list = get_ids(soup), get_ratings(soup, playlist_type), get_film_urls(soup)
+        id_list, rating_list, url_list = get_ids(soup), get_ratings(soup), get_film_urls(soup)
         ids.append(id_list)
         ratings.append(rating_list)
         film_urls.append(url_list)
 
-    ids_ratings_urls = defaultdict()
-    ids_ratings_urls["ids"] = unnest_list(ids)
-    ids_ratings_urls["ratings"] = unnest_list(ratings)
-    ids_ratings_urls["urls"] = unnest_list(film_urls)
-    return ids_ratings_urls
-
-
-@time_it
-def parse_film_urls_as_html(current_df: pd.DataFrame or None,
-                            new_records: list[str] or None,
-                            film_urls: list[str],
-                            technique: ParsingTechnique) -> list[str]:
-    if current_df is not None and new_records:
-        return parse_urls(urls=new_records, technique=technique)
-    elif current_df is None:
-        return parse_urls(urls=film_urls, technique=technique)
-
-
-@time_it
-def get_soup_objects_from_film_pages(current_df: pd.DataFrame,
-                                     new_records: list[str],
-                                     html_pages: list[str],
-                                     technique: ParallelTechnique) -> list[bs4.BeautifulSoup]:
-    if current_df is None or new_records:
-        return get_all_soup_objects(html_pages=html_pages, technique=technique)
+    ids_ratings_urls_dict = defaultdict()
+    ids_ratings_urls_dict["ids"] = unnest_list(ids)
+    ids_ratings_urls_dict["ratings"] = unnest_list(ratings)
+    ids_ratings_urls_dict["urls"] = unnest_list(film_urls)
+    return ids_ratings_urls_dict
 
 
 @dataclass
@@ -172,36 +138,32 @@ class FilmSoup:
 
 
 @time_it
-def scrape_remaining_film_data(current_df: pd.DataFrame,
-                               new_records: list[str],
-                               film_soups: list[bs4.BeautifulSoup, Any]) -> dict or None:
+def scrape_remaining_film_data(film_soups: list[bs4.BeautifulSoup, Any]) -> dict or None:
     """Stores all IDs, titles, years, directors, actors and countries in a dictionary"""
 
-    if current_df is None or new_records:
-        film_ids, titles, years, directors, actors, countries = [], [], [], [], [], []
-        for film_soup in film_soups:
-            film = FilmSoup(film_soup)
+    film_ids, titles, years, directors, actors, countries = [], [], [], [], [], []
+    for film_soup in film_soups:
+        film = FilmSoup(film_soup)
+        film_id = film.get_id()
+        title = film.get_title()
+        year = film.get_year()
+        director = film.get_director()
+        cast = film.get_cast()
+        country = film.get_country()
 
-            film_id = film.get_id()
-            title = film.get_title()
-            year = film.get_year()
-            director = film.get_director()
-            cast = film.get_cast()
-            country = film.get_country()
+        film_ids.append(film_id)
+        titles.append(title)
+        years.append(year)
+        directors.append(director)
+        actors.append(cast)
+        countries.append(country)
 
-            film_ids.append(film_id)
-            titles.append(title)
-            years.append(year)
-            directors.append(director)
-            actors.append(cast)
-            countries.append(country)
+    remaining_film_data = defaultdict()
+    remaining_film_data["film_ids"] = film_ids
+    remaining_film_data["titles"] = titles
+    remaining_film_data["years"] = years
+    remaining_film_data["directors"] = directors
+    remaining_film_data["actors"] = actors
+    remaining_film_data["countries"] = countries
 
-        remaining_film_data = defaultdict()
-        remaining_film_data["film_ids"] = film_ids
-        remaining_film_data["titles"] = titles
-        remaining_film_data["years"] = years
-        remaining_film_data["directors"] = directors
-        remaining_film_data["actors"] = actors
-        remaining_film_data["countries"] = countries
-
-        return remaining_film_data
+    return remaining_film_data

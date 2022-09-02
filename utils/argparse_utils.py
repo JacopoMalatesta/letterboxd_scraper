@@ -1,11 +1,4 @@
-from utils.generic_scraping_functions import ParsingTechnique, ParallelTechnique
-
-
-def format_parsing_argument(parsing: str) -> ParsingTechnique:
-    if parsing == "synchronous":
-        return ParsingTechnique.SYNCHRONOUS
-    elif parsing == "asynchronous":
-        return ParsingTechnique.ASYNCHRONOUS
+from utils.enums_classes import ParallelTechnique
 
 
 def format_soupification_argument(soupification: str) -> ParallelTechnique:

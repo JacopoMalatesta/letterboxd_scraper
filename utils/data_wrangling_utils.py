@@ -1,69 +1,55 @@
 import pandas as pd
 import logging
 from utils.logging_utils import Logger
-from utils.time_utils import time_it
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
 
-def get_new_records(current_df: pd.DataFrame,
-                    film_ids: list[int],
-                    film_urls: list[str]) -> list[str] or None:
+def get_film_ids_in_current_df(current_df: pd.DataFrame) -> pd.Series:
+    """Extracts the distinct film IDs of the films currently present in the S3 bucket"""
+    return current_df["id"]
+
+
+def get_new_records(current_film_ids: pd.Series,
+                    ids_ratings_urls_dict: dict) -> list[str] or None:
     """Creates a list with all IDs of films that have been added to the playlist after the latest upload"""
-    if current_df is not None:
-        current_film_ids = current_df["id"].unique()
-        new_entries = []
-        for film_id, url in zip(film_ids, film_urls):
-            if film_id not in current_film_ids:
-                new_entries.append(url)
-        info_log.info(f"N. of new records: {len(new_entries)}")
-        return new_entries
-    else:
-        info_log.info("Downloading all records from playlists")
-        return None
+    new_entries = []
+    for film_id, url in zip(ids_ratings_urls_dict["ids"], ids_ratings_urls_dict["urls"]):
+        if film_id not in current_film_ids:
+            new_entries.append(url)
+    info_log.info(f"N. of new records: {len(new_entries)}")
+    return new_entries
 
 
-@time_it
-def create_final_dataframe(current_df: pd.DataFrame,
-                           new_records: list[str],
-                           ids_ratings_urls: dict,
-                           additional_film_data: dict) -> pd.DataFrame:
+def get_ratings_dataframe(ids_ratings_urls_dict: dict) -> pd.DataFrame:
+    """Creates a dataframe out of the dictionary storing the IDs, rating and urls, renames two columns and drops the
+    url key/column"""
+    return pd.DataFrame(ids_ratings_urls_dict).rename(columns={'ids': 'id', 'ratings': 'rating'}).drop(columns='urls')
 
-    ratings_dict = {"id": ids_ratings_urls["ids"],
-                    "rating": ids_ratings_urls["ratings"]}
 
-    ratings_df = pd.DataFrame(ratings_dict)
+def get_film_data_dataframe(additional_film_data: dict) -> pd.DataFrame:
+    """Stores the additional film data dictionary in a dataframe and renames some of its keys/columns"""
+    df = pd.DataFrame(additional_film_data)
+    return df.rename(columns={'film_ids': 'id', 'titles': 'title', 'years': 'year', 'directors': 'director'})
 
-    if current_df is None:
-        no_ratings_dict = {"id": additional_film_data["film_ids"],
-                           "title": additional_film_data["titles"],
-                           "year": additional_film_data["years"],
-                           "director": additional_film_data["directors"],
-                           "actors": additional_film_data["actors"],
-                           "countries": additional_film_data["countries"]}
 
-        no_ratings_df = pd.DataFrame(no_ratings_dict)
+def inner_join_two_dataframes_on_film_id(left_dataframe: pd.DataFrame,
+                                         right_dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Merges the ratings dataframe to the film data dataframe with an inner join on film ID"""
+    return pd.merge(left=left_dataframe, right=right_dataframe, how="inner", on="id")
 
-        return pd.merge(left=ratings_df, right=no_ratings_df, how="inner", on="id").sort_values(["year", "title"])
 
-    else:
-        if new_records:
+def sort_dataframe_by_year_and_title(final_dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Sorts the supplied dataframe first by year and then by title, both in ascending order"""
+    return final_dataframe.sort_values(["year", "title"])
 
-            new_entries_dict = {"id": additional_film_data["film_ids"],
-                                "title": additional_film_data["titles"],
-                                "year": additional_film_data["years"],
-                                "director": additional_film_data["directors"],
-                                "actors": additional_film_data["actors"],
-                                "countries": additional_film_data["countries"]}
 
-            df_new_entries = pd.DataFrame(new_entries_dict)
+def get_all_columns_except_ratings_from_current_dataframe(current_df: pd.DataFrame) -> pd.DataFrame:
+    """Selects all columns from the current dataframe except ratings"""
+    return current_df[["id", "title", "year", "director", "actors", "countries"]]
 
-            current_df_no_ratings = current_df[["id", "title", "year", "director", "actors", "countries"]]
 
-            df_two = pd.concat([current_df_no_ratings, df_new_entries], ignore_index=True)
-
-            return pd.merge(ratings_df, df_two, "inner", "id").sort_values(["year", "title"])
-
-        else:
-            current_df_no_ratings = current_df[["id", "title", "year", "director", "actors", "countries"]]
-            return pd.merge(ratings_df, current_df_no_ratings, "inner", "id").sort_values(["year", "title"])
+def append_new_records_to_current_dataframe(current_df_no_ratings: pd.DataFrame,
+                                            new_records_dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Concatenates the new records dataframe to the current dataframe"""
+    return pd.concat([current_df_no_ratings, new_records_dataframe], ignore_index=True)

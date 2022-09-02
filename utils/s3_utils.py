@@ -41,9 +41,9 @@ class Bucket:
         s3_resource.Object(self.bucket, f'{filename}').put(Body=csv_buffer.getvalue())
 
 
-def get_s3_key(username: str, playlist_title: str) -> str:
+def get_s3_key(metadata: dict) -> str:
     """Returns the S3 key to the dataframe"""
-    return username + "/" + playlist_title + ".csv"
+    return metadata["user"] + "/" + metadata["title"] + ".csv"
 
 
 @time_it
