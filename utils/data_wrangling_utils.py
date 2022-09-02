@@ -5,13 +5,19 @@ from utils.logging_utils import Logger
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
 
+def cast_id_and_year_as_numeric(current_df: pd.DataFrame) -> pd.DataFrame:
+    """Typecasts the ID and year series to numeric"""
+    current_df[["id", "year"]] = current_df[["id", "year"]].apply(lambda col: pd.to_numeric(col))
+    return current_df
+
+
 def get_film_ids_in_current_df(current_df: pd.DataFrame) -> pd.Series:
-    """Extracts the distinct film IDs of the films currently present in the S3 bucket"""
-    return current_df["id"]
+    """Extracts the IDs of the films currently present in the S3 bucket"""
+    return current_df["id"].unique()
 
 
 def get_new_records(current_film_ids: pd.Series,
-                    ids_ratings_urls_dict: dict) -> list[str] or None:
+                    ids_ratings_urls_dict: dict) -> list[str]:
     """Creates a list with all IDs of films that have been added to the playlist after the latest upload"""
     new_entries = []
     for film_id, url in zip(ids_ratings_urls_dict["ids"], ids_ratings_urls_dict["urls"]):

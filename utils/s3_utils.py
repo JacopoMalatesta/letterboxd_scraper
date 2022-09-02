@@ -17,20 +17,24 @@ class Bucket:
     access_key: str
     secret_access_key: str
 
+    @time_it
     def read_csv_from_s3(self,
-                         key: str) -> pd.DataFrame:
+                         key: str) -> pd.DataFrame or None:
 
-        session = boto3.Session(aws_access_key_id=self.access_key,
-                                aws_secret_access_key=self.secret_access_key)
+        try:
+            session = boto3.Session(aws_access_key_id=self.access_key,
+                                    aws_secret_access_key=self.secret_access_key)
+            s3 = session.client('s3')
+            obj = s3.get_object(Bucket=self.bucket, Key=key)
+            buffer = io.BytesIO(obj['Body'].read())
+            return pd.read_csv(buffer)
+        except ClientError:
+            return None
 
-        s3 = session.client('s3')
-        obj = s3.get_object(Bucket=self.bucket, Key=key)
-        buffer = io.BytesIO(obj['Body'].read())
-        return pd.read_csv(buffer)
-
+    @time_it
     def write_csv_to_s3(self,
                         filename: str,
-                        df: pd.DataFrame) -> None:
+                        df: pd.DataFrame):
 
         session = boto3.Session(aws_access_key_id=self.access_key,
                                 aws_secret_access_key=self.secret_access_key)
@@ -39,39 +43,9 @@ class Bucket:
         csv_buffer = io.BytesIO()
         df.to_csv(csv_buffer, index=False)
         s3_resource.Object(self.bucket, f'{filename}').put(Body=csv_buffer.getvalue())
+        info_log.info(f"Dataframe in S3 bucket will have {len(df)} records")
 
 
 def get_s3_key(metadata: dict) -> str:
     """Returns the S3 key to the dataframe"""
     return metadata["user"] + "/" + metadata["title"] + ".csv"
-
-
-@time_it
-def read_current_df_from_s3(configs: dict, key: str) -> pd.DataFrame or None:
-    """If present, it reads the playlist currently stored in S3. If not it returns None"""
-
-    s3_bucket = Bucket(bucket=configs["s3_bucket"],
-                       access_key=configs["aws_access_key"],
-                       secret_access_key=configs["aws_secret_access_key"])
-
-    try:
-        current_df = s3_bucket.read_csv_from_s3(key=key)
-    except ClientError:
-        current_df = None
-    else:
-        cols = ["id", "year"]
-        current_df[cols] = current_df[cols].apply(lambda col: pd.to_numeric(col))
-    return current_df
-
-
-@time_it
-def write_final_df_to_s3(configs: dict, df: pd.DataFrame, key: str):
-    """Writes the final dataframe to S3"""
-
-    s3_bucket = Bucket(bucket=configs["s3_bucket"],
-                       access_key=configs["aws_access_key"],
-                       secret_access_key=configs["aws_secret_access_key"])
-
-    s3_bucket.write_csv_to_s3(filename=key,
-                              df=df)
-    info_log.info(f"Dataframe in S3 bucket will have {len(df)} records")

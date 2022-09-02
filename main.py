@@ -15,10 +15,11 @@ from utils.generic_scraping_functions import parse_all_urls_asynchronously, get_
     get_soup_objects_multithreading, get_soup_objects_synchronously
 from utils.letterboxd_scraping_functions import get_url_for_each_page, scrape_ids_ratings_and_urls,\
     scrape_remaining_film_data
-from utils.s3_utils import get_s3_key, read_current_df_from_s3, write_final_df_to_s3
-from utils.data_wrangling_utils import get_film_ids_in_current_df, get_new_records, get_ratings_dataframe,\
-    get_film_data_dataframe, inner_join_two_dataframes_on_film_id, sort_dataframe_by_year_and_title,\
-    get_all_columns_except_ratings_from_current_dataframe, append_new_records_to_current_dataframe
+from utils.s3_utils import Bucket, get_s3_key
+from utils.data_wrangling_utils import cast_id_and_year_as_numeric, get_film_ids_in_current_df, get_new_records,\
+    get_ratings_dataframe, get_film_data_dataframe, inner_join_two_dataframes_on_film_id,\
+    sort_dataframe_by_year_and_title, get_all_columns_except_ratings_from_current_dataframe,\
+    append_new_records_to_current_dataframe
 from utils.logging_utils import Logger
 from utils.time_utils import time_it
 from utils.enums_classes import ParallelTechnique
@@ -62,8 +63,16 @@ def main(url: str,
 
         df_key = get_s3_key(metadata=metadata)
 
-        current_df, runtime = read_current_df_from_s3(configs=config_dict, key=df_key)
+        s3_bucket = Bucket(bucket=config_dict["s3_bucket"],
+                           access_key=config_dict["aws_access_key"],
+                           secret_access_key=config_dict["aws_secret_access_key"])
+
+        current_df, runtime = s3_bucket.read_csv_from_s3(key=df_key)
+
         info_log.info(f"Read the current dataframe from S3 (if any) in {runtime}")
+
+        if current_df is not None:
+            current_df = cast_id_and_year_as_numeric(current_df=current_df)
 
         current_df = None if over_write else current_df
 
@@ -125,7 +134,7 @@ def main(url: str,
         final_df = sort_dataframe_by_year_and_title(final_dataframe=joined_df)
         info_log.info(f"Created the final dataframe")
 
-        _none, runtime = write_final_df_to_s3(configs=config_dict, df=final_df, key=df_key)
+        _none, runtime = s3_bucket.write_csv_to_s3(filename=df_key, df=final_df)
         info_log.info(f"Wrote final dataframe to S3 bucket in {runtime}")
 
 
