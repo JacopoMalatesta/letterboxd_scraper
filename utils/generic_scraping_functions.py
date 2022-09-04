@@ -32,10 +32,14 @@ async def event_loop(urls: list[str]):
         return await asyncio.gather(*tasks)
 
 
+def set_windows_event_loop_policy() -> None:
+    """Sets the event loop policy for Windows systems"""
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
 @time_it
 def parse_all_urls_asynchronously(urls: list[str]) -> list[str]:
     """Runs the event loop to get the HTML code for each url in the urls list"""
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     return asyncio.run(event_loop(urls))
 
 

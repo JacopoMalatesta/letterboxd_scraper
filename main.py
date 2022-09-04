@@ -11,8 +11,8 @@ import argparse
 from distutils.util import strtobool
 from utils.config import config_dict
 from utils.playlist_metadata import Playlist
-from utils.generic_scraping_functions import parse_all_urls_asynchronously, get_soup_objects_multiprocessing,\
-    get_soup_objects_multithreading, get_soup_objects_synchronously
+from utils.generic_scraping_functions import set_windows_event_loop_policy, parse_all_urls_asynchronously,\
+    get_soup_objects_multiprocessing, get_soup_objects_multithreading, get_soup_objects_synchronously
 from utils.letterboxd_scraping_functions import get_url_for_each_page, scrape_ids_ratings_and_urls,\
     scrape_remaining_film_data
 from utils.s3_utils import Bucket, get_s3_key
@@ -43,6 +43,8 @@ def main(url: str,
         info_log.info(f"Started scraping playlist {metadata['title'].upper()} from user {metadata['user'].upper()}")
 
         playlist_pages_urls = get_url_for_each_page(metadata=metadata)
+
+        set_windows_event_loop_policy()
 
         playlist_pages_html, runtime = parse_all_urls_asynchronously(urls=playlist_pages_urls)
 
