@@ -1,8 +1,4 @@
 import pandas as pd
-import logging
-from utils.logging_utils import Logger
-
-info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
 
 def cast_id_and_year_as_numeric(current_df: pd.DataFrame) -> pd.DataFrame:
@@ -23,7 +19,6 @@ def get_new_records(current_film_ids: pd.Series,
     for film_id, url in zip(ids_ratings_urls_dict["ids"], ids_ratings_urls_dict["urls"]):
         if film_id not in current_film_ids:
             new_entries.append(url)
-    info_log.info(f"N. of new records: {len(new_entries)}")
     return new_entries
 
 

@@ -60,7 +60,6 @@ def main(url: str,
         info_log.info(f"Got BeautifulSoup objects out of playlist pages ({parallel_technique.value}) in {runtime}")
 
         ids_ratings_urls_dict, runtime = scrape_ids_ratings_and_urls(pages_soups=playlist_pages_soups)
-
         info_log.info(f"Scraped film IDs, ratings and URLs from playlist pages in {runtime}")
 
         df_key = get_s3_key(metadata=metadata)
@@ -69,19 +68,25 @@ def main(url: str,
                            access_key=config_dict["aws_access_key"],
                            secret_access_key=config_dict["aws_secret_access_key"])
 
-        current_df, runtime = s3_bucket.read_csv_from_s3(key=df_key)
+        session = s3_bucket.get_boto_session()
 
-        info_log.info(f"Read the current dataframe from S3 (if any) in {runtime}")
+        if over_write:
+            current_df = None
+            info_log.info(f"Overwriting object {df_key} in {s3_bucket.bucket}")
+        else:
+            s3_client = s3_bucket.get_s3_client(session=session)
+            current_df, runtime = s3_bucket.read_csv_from_s3(s3_client=s3_client, key=df_key)
+            info_log.info(f"Read the current dataframe from S3 in {runtime}")
 
         if current_df is not None:
             current_df = cast_id_and_year_as_numeric(current_df=current_df)
-
-        current_df = None if over_write else current_df
-
-        if current_df is not None:
             current_film_ids = get_film_ids_in_current_df(current_df=current_df)
             new_records = get_new_records(current_film_ids=current_film_ids,
                                           ids_ratings_urls_dict=ids_ratings_urls_dict)
+            if new_records:
+                info_log.info(f"N. of new films to be added to the playlist: {len(new_records)}")
+            else:
+                info_log.info(f"No new films to be added to the playlist")
         else:
             new_records = None
 
@@ -136,7 +141,9 @@ def main(url: str,
         final_df = sort_dataframe_by_year_and_title(final_dataframe=joined_df)
         info_log.info(f"Created the final dataframe")
 
-        _none, runtime = s3_bucket.write_csv_to_s3(filename=df_key, df=final_df)
+        s3_resource = s3_bucket.get_s3_resource(session=session)
+
+        _none, runtime = s3_bucket.write_csv_to_s3(s3_resource=s3_resource, filename=df_key, df=final_df)
         info_log.info(f"Wrote final dataframe to S3 bucket in {runtime}")
 
 
