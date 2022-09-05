@@ -48,7 +48,6 @@ class Bucket:
         csv_buffer = io.BytesIO()
         df.to_csv(csv_buffer, index=False)
         s3_resource.Object(self.bucket, f'{filename}').put(Body=csv_buffer.getvalue())
-        info_log.info(f"Dataframe in S3 bucket will have {len(df)} records")
 
 
 def get_s3_key(metadata: dict) -> str:
