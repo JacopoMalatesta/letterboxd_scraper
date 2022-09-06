@@ -52,4 +52,4 @@ class Bucket:
 
 def get_s3_key(metadata: dict) -> str:
     """Returns the S3 key to the dataframe"""
-    return metadata["user"] + "/" + metadata["title"] + ".csv"
+    return metadata["user"] + "/" + metadata["title"] + "/" + metadata["title"] + ".csv"

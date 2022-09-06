@@ -1,11 +1,9 @@
 # IMPROVEMENTS/NICE TO HAVE
 # 1. Solve encoding issue
-# 2. Amazon Athena and connect to Tableau
 # 3. AWS Lambda
 # 4. Add docstrings + type declarations
 # 5. Unit testing
 
-import sys
 import logging
 import argparse
 from distutils.util import strtobool
@@ -24,8 +22,7 @@ from utils.logging_utils import Logger
 from utils.time_utils import time_it
 from utils.enums_classes import ParallelTechnique
 from utils.argparse_utils import format_soupification_argument
-
-sys.setrecursionlimit(100000)
+from utils.database_utils import get_engine, get_table_name, write_to_database
 
 info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 
@@ -33,7 +30,9 @@ info_log = Logger(name=__name__, level=logging.INFO).return_logger()
 @time_it
 def main(url: str,
          parallel_technique: ParallelTechnique,
-         over_write: bool):
+         over_write: bool,
+         write_to_local_db: bool):
+
     playlist = Playlist(url=url)
     metadata = playlist.get_playlist_metadata()
 
@@ -148,6 +147,12 @@ def main(url: str,
     info_log.info(f"Dataframe in S3 bucket will have {len(final_df)} records")
     info_log.info(f"Wrote final dataframe to S3 bucket in {runtime}")
 
+    if write_to_local_db:
+        engine = get_engine(config=config_dict)
+        table_name = get_table_name(playlist_metadata=metadata)
+        _none, runtime = write_to_database(engine=engine, df=final_df, table_name=table_name)
+        info_log.info(f"Wrote dataframe to local Postgres database in {runtime}")
+
 
 parser = argparse.ArgumentParser()
 
@@ -165,15 +170,21 @@ parser.add_argument("-o",
                     help="If True it scrapes the entire playlist and overwrites the existing csv file in S3",
                     type=lambda x: bool(strtobool(x)),
                     default=False)
+parser.add_argument("-d",
+                    "--database",
+                    help="If True it stores the dataframe to a local Postgres database",
+                    type=lambda x: bool(strtobool(x)),
+                    default=False)
 
 args = parser.parse_args()
 playlist_url = args.url
 soupification = format_soupification_argument(args.soupification)
 overwrite = args.overwrite
-
+write_to_local_database = args.database
 
 if __name__ == "__main__":
     test, total_execution_time = main(url=playlist_url,
                                       parallel_technique=soupification,
-                                      over_write=overwrite)
+                                      over_write=overwrite,
+                                      write_to_local_db=write_to_local_database)
     info_log.info(f"Total runtime: {total_execution_time}")
