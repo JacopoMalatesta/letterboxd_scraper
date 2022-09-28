@@ -14,7 +14,7 @@ def get_film_ids_in_current_df(current_df: pd.DataFrame) -> pd.Series:
 
 def get_new_records(current_film_ids: pd.Series,
                     ids_ratings_urls_dict: dict) -> list[str]:
-    """Creates a list with all IDs of films that have been added to the playlist after the latest upload"""
+    """Creates a list with all URLs of films that have been added to the playlist after the latest upload"""
     new_entries = []
     for film_id, url in zip(ids_ratings_urls_dict["ids"], ids_ratings_urls_dict["urls"]):
         if film_id not in current_film_ids:

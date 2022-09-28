@@ -13,7 +13,8 @@ from utils.generic_scraping_functions import set_windows_event_loop_policy, pars
     get_soup_objects_multiprocessing, get_soup_objects_multithreading, get_soup_objects_synchronously
 from utils.letterboxd_scraping_functions import get_url_for_each_page, scrape_ids_ratings_and_urls,\
     scrape_remaining_film_data
-from utils.s3_utils import Bucket, get_s3_key
+from utils.s3_utils import get_s3_key, get_boto_session, get_s3_client, read_csv_from_s3, get_s3_resource,\
+    write_csv_to_s3
 from utils.data_wrangling_utils import cast_id_and_year_as_numeric, get_film_ids_in_current_df, get_new_records,\
     get_ratings_dataframe, get_film_data_dataframe, inner_join_two_dataframes_on_film_id,\
     sort_dataframe_by_year_and_title, get_all_columns_except_ratings_from_current_dataframe,\
@@ -61,18 +62,14 @@ def main(url: str,
 
     df_key = get_s3_key(metadata=metadata)
 
-    s3_bucket = Bucket(bucket=config_dict["s3_bucket"],
-                       access_key=config_dict["aws_access_key"],
-                       secret_access_key=config_dict["aws_secret_access_key"])
-
-    session = s3_bucket.get_boto_session()
+    session = get_boto_session(config=config_dict)
 
     if over_write:
         current_df = None
-        info_log.info(f"Overwriting object {df_key} in {s3_bucket.bucket}")
+        info_log.info(f"Overwriting object {df_key} in {config_dict['s3_bucket']}")
     else:
-        s3_client = s3_bucket.get_s3_client(session=session)
-        current_df, runtime = s3_bucket.read_csv_from_s3(s3_client=s3_client, key=df_key)
+        s3_client = get_s3_client(session=session)
+        current_df, runtime = read_csv_from_s3(bucket=config_dict['s3_bucket'], s3_client=s3_client, key=df_key)
         info_log.info(f"Read the current dataframe from S3 in {runtime}")
 
     if current_df is not None:
@@ -141,9 +138,12 @@ def main(url: str,
 
     final_df = sort_dataframe_by_year_and_title(final_dataframe=joined_df)
 
-    s3_resource = s3_bucket.get_s3_resource(session=session)
+    s3_resource = get_s3_resource(session=session)
 
-    _none, runtime = s3_bucket.write_csv_to_s3(s3_resource=s3_resource, filename=df_key, df=final_df)
+    _none, runtime = write_csv_to_s3(bucket=config_dict['s3_bucket'],
+                                     s3_resource=s3_resource,
+                                     filename=df_key,
+                                     df=final_df)
     info_log.info(f"Dataframe in S3 bucket will have {len(final_df)} records")
     info_log.info(f"Wrote final dataframe to S3 bucket in {runtime}")
 
