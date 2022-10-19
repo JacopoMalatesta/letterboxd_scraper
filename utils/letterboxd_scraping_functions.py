@@ -51,8 +51,8 @@ def get_ratings(soup: bs4.BeautifulSoup) -> list[int]:
         films = soup.find_all("li", class_="poster-container")
         return [int(film.get("data-owner-rating")) for film in films]
     except TypeError:
-        rated = [span.get("class")[1] for span in soup.find_all("span", class_="rating")]
-        return [int(re.findall(r'\d+', r)[0]) for r in rated]
+        spans = [str(span) for span in soup.find_all("span", class_=re.compile("rating -tiny -darker rated"))]
+        return [int(re.findall(string=span, pattern=r"\d+")[0]) for span in spans]
 
 
 def get_film_urls(soup: bs4.BeautifulSoup) -> list[str]:

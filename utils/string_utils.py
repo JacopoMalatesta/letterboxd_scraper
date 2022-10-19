@@ -17,5 +17,7 @@ def get_username(groups: list[str]) -> str:
 
 def get_playlist_title(groups: list[str]) -> str:
     """Extract the playlist title from the playlist URL"""
-    # groups = self.get_capturing_groups()
-    return groups[-1].replace("-", "_")
+    if groups[-1] == "rated":
+        return "ratings"
+    else:
+        return groups[-1].replace("-", "_")
